@@ -1,0 +1,40 @@
+# Env / secrets — шаблон .env.example оставляем
+.env
+.env.*
+!.env.example
+
+# ОС
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Редакторы
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+
+# Node / Vite
+node_modules/
+apps/web/dist/
+*.tsbuildinfo
+
+# Локальные черновики и логи
+.tmp-figma/
+*.log

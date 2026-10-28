@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:16
+    container_name: vyaz-db
+    environment:
+      POSTGRES_USER: vyaz
+      POSTGRES_PASSWORD: vyaz
+      POSTGRES_DB: vyaz
+    ports:
+      - "55432:5432"
+    volumes:
+      - vyaz_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vyaz -d vyaz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  vyaz_pg:
