@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Background,
+  ConnectionMode,
   Controls,
   MiniMap,
   ReactFlow,
@@ -26,6 +27,7 @@ import { layoutGraph } from "../lib/layout";
 import {
   KIND_OPTIONS,
   applyEdgeLook,
+  handlesBetween,
   reachableFrom,
   sameTaskPair,
   uniquePairEdges,
@@ -66,6 +68,42 @@ function positionsOf(current: Node[]) {
   return positions;
 }
 
+function isMapChrome(el: Element | null) {
+  return Boolean(
+    el?.closest(".vyaz-sidebar") ||
+      el?.closest(".react-flow__controls") ||
+      el?.closest(".react-flow__minimap") ||
+      el?.closest(".vyaz-map__bar") ||
+      el?.closest(".vyaz-map__tools"),
+  );
+}
+
+function oppositeHandle(fromPosition?: string) {
+  if (fromPosition === "bottom") {
+    return "top";
+  }
+  if (fromPosition === "right") {
+    return "left";
+  }
+  if (fromPosition === "top") {
+    return "bottom";
+  }
+  return "left";
+}
+
+function originForHandle(handleId?: string | null): [number, number] {
+  if (handleId === "top") {
+    return [0.5, 1];
+  }
+  if (handleId === "left") {
+    return [1, 0.5];
+  }
+  if (handleId === "right") {
+    return [0, 0.5];
+  }
+  return [0.5, 0];
+}
+
 function taskNode(task: Task, type: TaskType | undefined, position: { x: number; y: number }, center: boolean): Node {
   return {
     id: task.id,
@@ -98,6 +136,8 @@ function ConstructorCanvas() {
   const { fitView, screenToFlowPosition } = useReactFlow();
   const connectingFrom = useRef<string | null>(null);
   const creatingRef = useRef(false);
+  const nodesRef = useRef<Node[]>([]);
+  const edgesRef = useRef<FlowEdge[]>([]);
   const didFit = useRef(false);
   const selectedEdgeIdRef = useRef<string | null>(null);
   const pinnedIdsRef = useRef<string[]>([]);
@@ -119,6 +159,8 @@ function ConstructorCanvas() {
   const [deleteTask, setDeleteTask] = useState<{ id: string; title: string } | null>(null);
   selectedEdgeIdRef.current = selectedEdgeId;
   pinnedIdsRef.current = pinnedIds;
+  nodesRef.current = nodes;
+  edgesRef.current = edges;
   usePageTitle("Вязь — Конструктор");
 
   const looseTasks = useMemo(
@@ -160,16 +202,29 @@ function ConstructorCanvas() {
     const typeMap = new Map(data.types.map((item) => [item.id, item]));
     const pins = (saved.pinned_ids ?? []).filter((id) => id !== data.center_id);
     const known = new Set(data.tasks.map((task) => task.id));
-    const extra = board.tasks.filter((task) => pins.includes(task.id) && !known.has(task.id));
+    const extra = board.tasks.filter(
+      (task) =>
+        !known.has(task.id) && (pins.includes(task.id) || Boolean(saved.positions[task.id])),
+    );
     const nextNodes: Node[] = [...data.tasks, ...extra].map((task) =>
       taskNode(task, typeMap.get(task.type_id) ?? board.types.find((item) => item.id === task.type_id), saved.positions[task.id] ?? { x: 0, y: 0 }, task.id === data.center_id),
     );
-    const nextEdges: FlowEdge[] = uniquePairEdges(data.edges).map((edge) => ({
-      id: edge.id,
-      source: edge.source_id,
-      target: edge.target_id,
-      ...applyEdgeLook(edge.kind),
-    }));
+    const nodeIds = new Set(nextNodes.map((node) => node.id));
+    const placed = new Map(nextNodes.map((node) => [node.id, node.position]));
+    const nextEdges: FlowEdge[] = uniquePairEdges([
+      ...data.edges,
+      ...(board.edges ?? []).filter((edge) => nodeIds.has(edge.source_id) && nodeIds.has(edge.target_id)),
+    ]).map((edge) => {
+      const from = placed.get(edge.source_id);
+      const to = placed.get(edge.target_id);
+      return {
+        id: edge.id,
+        source: edge.source_id,
+        target: edge.target_id,
+        ...(from && to ? handlesBetween(from, to) : {}),
+        ...applyEdgeLook(edge.kind),
+      };
+    });
     const marked = withDetached(nextNodes, nextEdges, data.center_id);
     const missing = marked.filter((node) => !saved.positions[node.id]);
     const laidOut = missing.length === 0 ? marked : await layoutGraph(marked, nextEdges, data.center_id);
@@ -183,9 +238,15 @@ function ConstructorCanvas() {
       ...pins,
       ...merged.filter((node) => (node.data as TaskNodeData).detached).map((node) => node.id),
     ]);
+    const placedAfter = new Map(merged.map((node) => [node.id, node.position]));
+    const routedEdges = nextEdges.map((edge) => {
+      const from = placedAfter.get(edge.source);
+      const to = placedAfter.get(edge.target);
+      return from && to ? { ...edge, ...handlesBetween(from, to) } : edge;
+    });
     setPinnedIds(nextPins);
-    setNodes(withDetached(merged, nextEdges, data.center_id));
-    setEdges(nextEdges);
+    setNodes(withDetached(merged, routedEdges, data.center_id));
+    setEdges(routedEdges);
     setSelectedType(data.types.find((item) => item.slug === "task") ?? data.types[0] ?? null);
     if (missing.length > 0) {
       await persistView(merged, nextPins);
@@ -249,46 +310,70 @@ function ConstructorCanvas() {
     [persistView, setEdges, setNodes, taskId],
   );
 
-  const onConnect = useCallback(
-    async (connection: Connection) => {
-      if (!connection.source || !connection.target || connection.source === connection.target) {
+  const connectPair = useCallback(
+    async (
+      source: string,
+      target: string,
+      handles?: { sourceHandle?: string | null; targetHandle?: string | null },
+    ) => {
+      if (!source || !target || source === target) {
         return;
       }
-      const already = edges.find((edge) => sameTaskPair(edge, connection));
+      const currentEdges = edgesRef.current;
+      const already = currentEdges.find((edge) => sameTaskPair(edge, { source, target }));
       if (already) {
         selectEdge(already.id);
         return;
       }
-      const created = (await api.createEdge({
-        workspace_id: workspaceId,
-        source_id: connection.source,
-        target_id: connection.target,
-        kind: "primary",
-        type: "next",
-      })) as Edge;
-      const pair = edges.find((edge) => edge.id === created.id || sameTaskPair(edge, connection));
-      const nextEdges: FlowEdge[] = pair
-        ? edges.map((item) => ({
-            ...item,
-            selected: item.id === pair.id,
-            ...(item.id === created.id ? applyEdgeLook(created.kind) : {}),
-          }))
-        : [
-            ...edges,
-            {
-              id: created.id,
-              source: connection.source,
-              target: connection.target,
-              sourceHandle: connection.sourceHandle,
-              targetHandle: connection.targetHandle,
-              selected: true,
-              ...applyEdgeLook(created.kind),
-            },
-          ];
-      setSelectedEdgeId(created.id);
-      applyGraph(nodes, nextEdges);
+      setError("");
+      try {
+        const created = (await api.createEdge({
+          workspace_id: workspaceId,
+          source_id: source,
+          target_id: target,
+          kind: "primary",
+          type: "next",
+        })) as Edge;
+        const latest = edgesRef.current;
+        const pair = latest.find((edge) => edge.id === created.id || sameTaskPair(edge, { source, target }));
+        const nextEdges: FlowEdge[] = pair
+          ? latest.map((item) => ({
+              ...item,
+              selected: item.id === pair.id,
+              ...(item.id === created.id ? applyEdgeLook(created.kind) : {}),
+            }))
+          : [
+              ...latest,
+              {
+                id: created.id,
+                source,
+                target,
+                sourceHandle: handles?.sourceHandle ?? undefined,
+                targetHandle: handles?.targetHandle ?? undefined,
+                selected: true,
+                ...applyEdgeLook(created.kind),
+              },
+            ];
+        setSelectedEdgeId(created.id);
+        applyGraph(nodesRef.current, nextEdges);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Не удалось создать связь");
+      }
     },
-    [applyGraph, edges, nodes, selectEdge, workspaceId],
+    [applyGraph, selectEdge, workspaceId],
+  );
+
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      if (!connection.source || !connection.target) {
+        return;
+      }
+      void connectPair(connection.source, connection.target, {
+        sourceHandle: connection.sourceHandle,
+        targetHandle: connection.targetHandle,
+      });
+    },
+    [connectPair],
   );
 
   const createTaskFrom = useCallback(
@@ -320,7 +405,7 @@ function ConstructorCanvas() {
           type: type.slug === "task" ? "next" : "supports",
         })) as Edge;
         const newNode = taskNode(task, type, position, false);
-        newNode.origin = [0.5, 0];
+        newNode.origin = originForHandle(handles?.sourceHandle);
         const newEdge: FlowEdge = {
           id: createdEdge.id,
           source: sourceId,
@@ -329,9 +414,11 @@ function ConstructorCanvas() {
           targetHandle: handles?.targetHandle ?? undefined,
           ...applyEdgeLook(kind),
         };
+        const currentNodes = nodesRef.current;
+        const currentEdges = edgesRef.current;
         applyGraph(
-          nodes.some((node) => node.id === task.id) ? nodes : [...nodes, newNode],
-          edges.some((edge) => edge.id === newEdge.id) ? edges : [...edges, newEdge],
+          currentNodes.some((node) => node.id === task.id) ? currentNodes : [...currentNodes, newNode],
+          currentEdges.some((edge) => edge.id === newEdge.id) ? currentEdges : [...currentEdges, newEdge],
         );
         openPreview(task.id);
       } catch (err) {
@@ -341,7 +428,7 @@ function ConstructorCanvas() {
         setCreating(false);
       }
     },
-    [applyGraph, edges, graph?.types, nodes, openPreview, selectedType, workspaceId],
+    [applyGraph, graph?.types, openPreview, selectedType, workspaceId],
   );
 
   const onConnectStart = useCallback<OnConnectStart>((_event, params) => {
@@ -352,32 +439,30 @@ function ConstructorCanvas() {
     (event, state) => {
       const sourceId = state.fromNode?.id ?? connectingFrom.current;
       connectingFrom.current = null;
-      if (state.isValid || state.toNode || !sourceId || creatingRef.current) {
+      if (state.isValid || !sourceId || creatingRef.current) {
         return;
       }
       const point = "changedTouches" in event ? event.changedTouches[0] : event;
       const under = document.elementFromPoint(point.clientX, point.clientY);
-      if (
-        under?.closest(".vyaz-sidebar") ||
-        under?.closest(".react-flow__controls") ||
-        under?.closest(".react-flow__minimap") ||
-        under?.closest(".vyaz-map__bar") ||
-        under?.closest(".vyaz-map__tools")
-      ) {
+      if (isMapChrome(under)) {
         return;
       }
-      const overNode = under?.closest(".react-flow__node");
-      if (overNode && overNode.getAttribute("data-id") !== sourceId) {
+      const overId = under?.closest(".react-flow__node")?.getAttribute("data-id");
+      const handles = {
+        sourceHandle: state.fromHandle?.id,
+        targetHandle: oppositeHandle(state.fromHandle?.position),
+      };
+      if (overId && overId !== sourceId) {
+        void connectPair(sourceId, overId, handles);
+        return;
+      }
+      if (overId === sourceId) {
         return;
       }
       const position = screenToFlowPosition({ x: point.clientX, y: point.clientY });
-      const fromPosition = state.fromHandle?.position;
-      void createTaskFrom(sourceId, position, undefined, {
-        sourceHandle: state.fromHandle?.id,
-        targetHandle: fromPosition === "bottom" ? "top" : undefined,
-      });
+      void createTaskFrom(sourceId, position, undefined, handles);
     },
-    [createTaskFrom, screenToFlowPosition],
+    [connectPair, createTaskFrom, screenToFlowPosition],
   );
 
   const onNodeClick: NodeMouseHandler = (_event, node) => {
@@ -553,12 +638,16 @@ function ConstructorCanvas() {
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
-            onConnect={(connection) => void onConnect(connection)}
+            onConnect={onConnect}
             onConnectStart={onConnectStart}
             onConnectEnd={onConnectEnd}
             onClickConnectEnd={onConnectEnd}
             onNodeClick={onNodeClick}
             onEdgeClick={onEdgeClick}
+            isValidConnection={(connection) =>
+              Boolean(connection.source && connection.target && connection.source !== connection.target)
+            }
+            connectionMode={ConnectionMode.Loose}
             onPaneClick={(event) => {
               const target = event.target as HTMLElement | undefined;
               if (target?.closest?.(".vyaz-map__tools, .vyaz-kind-switch, [role='listbox']")) {
@@ -570,7 +659,7 @@ function ConstructorCanvas() {
             onNodeDragStop={(_event, _node, current) => void persistPositions(current)}
             nodeTypes={nodeTypes}
             connectOnClick={false}
-            connectionRadius={16}
+            connectionRadius={28}
           >
             <Background />
             <Controls />

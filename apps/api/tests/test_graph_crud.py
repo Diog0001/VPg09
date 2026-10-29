@@ -305,6 +305,33 @@ def test_delete_task_key_needs_force(client: TestClient, db: Session) -> None:
     assert client.get(f"/api/v1/tasks/{a['id']}").status_code == 404
 
 
+def test_focus_keeps_long_key_chain(client: TestClient, db: Session) -> None:
+    workspace_id, type_id = _workspace_and_type(db)
+    titles = ["A", "B", "C", "D", "E"]
+    created = [
+        client.post(
+            "/api/v1/tasks", json={"workspace_id": workspace_id, "type_id": type_id, "title": title}
+        ).json()
+        for title in titles
+    ]
+    for source, target in zip(created, created[1:]):
+        edge = client.post(
+            "/api/v1/edges",
+            json={
+                "workspace_id": workspace_id,
+                "source_id": source["id"],
+                "target_id": target["id"],
+                "kind": "key",
+                "type": "part_of_key",
+            },
+        )
+        assert edge.status_code == 200
+        assert edge.json()["kind"] == "key"
+    focus = client.get(f"/api/v1/tasks/{created[0]['id']}/focus").json()
+    assert {task["title"] for task in focus["tasks"]} == set(titles)
+    assert len(focus["edges"]) == 4
+
+
 def test_board_includes_edges(client: TestClient, db: Session) -> None:
     workspace_id, type_id = _workspace_and_type(db)
     a = client.post(

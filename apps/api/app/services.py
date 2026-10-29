@@ -48,13 +48,15 @@ def assert_same_workspace(*tasks: Task) -> None:
         )
 
 
-def focus_graph(db: Session, center: Task, radius: int = 2) -> tuple[list[Task], list[Edge]]:
+def focus_graph(db: Session, center: Task, radius: int | None = None) -> tuple[list[Task], list[Edge]]:
     seen = {center.id}
     frontier = {center.id}
     collected: dict[str, Edge] = {}
-    for _ in range(radius):
-        if not frontier:
+    hops = 0
+    while frontier:
+        if radius is not None and hops >= radius:
             break
+        hops += 1
         edges = (
             db.query(Edge)
             .filter(

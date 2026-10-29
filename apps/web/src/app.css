@@ -895,6 +895,7 @@ a {
   height: 14px;
   background: var(--vyaz-coral);
   border: 2px solid #fff;
+  z-index: 12;
 }
 
 .vyaz-node .react-flow__handle::after {

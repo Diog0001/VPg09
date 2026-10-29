@@ -121,7 +121,7 @@ def get_focus(
 ) -> FocusOut:
     center = active_task(db, task_id)
     require_workspace(db, user, center.workspace_id)
-    tasks, edges = focus_graph(db, center, radius=2)
+    tasks, edges = focus_graph(db, center)
     return FocusOut(
         center_id=center.id,
         tasks=[TaskOut.model_validate(t) for t in tasks],

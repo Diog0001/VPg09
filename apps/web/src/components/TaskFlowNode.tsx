@@ -8,6 +8,15 @@ export type TaskNodeData = {
   detached?: boolean;
 };
 
+function SideHandles({ position, id }: { position: Position; id: string }) {
+  return (
+    <>
+      <Handle type="target" position={position} id={id} />
+      <Handle type="source" position={position} id={id} />
+    </>
+  );
+}
+
 export function TaskFlowNode({ data }: NodeProps) {
   const node = data as TaskNodeData;
   const fill = `color-mix(in srgb, ${node.color} 38%, white)`;
@@ -18,15 +27,15 @@ export function TaskFlowNode({ data }: NodeProps) {
       role="button"
       tabIndex={0}
     >
-      <Handle type="target" position={Position.Left} />
-      <Handle type="target" position={Position.Top} id="top" />
+      <SideHandles position={Position.Left} id="left" />
+      <SideHandles position={Position.Top} id="top" />
       <span className="vyaz-node__type" style={{ color: node.color }}>
         {node.typeLabel}
       </span>
       <strong>{node.title}</strong>
       {node.detached ? <span className="vyaz-node__status">Без связи</span> : null}
-      <Handle type="source" position={Position.Right} />
-      <Handle type="source" position={Position.Bottom} id="bottom" />
+      <SideHandles position={Position.Right} id="right" />
+      <SideHandles position={Position.Bottom} id="bottom" />
     </div>
   );
 }
