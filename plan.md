@@ -35,12 +35,12 @@ MVP продукта = конец фазы 5.
 
 Работы:
 
-- Монорепо: `apps/api` (FastAPI) + `apps/web` (Vite + React + `@carbon/react`).
+- Монорепо: `apps/api` (FastAPI) + `apps/web` (Vite + React, свои примитивы).
 - Docker Compose: Postgres 16.
 - API: SQLAlchemy 2 + Alembic, модели User, Workspace, Membership, Task, TaskType, Edge, Event.
 - Enums: `TaskStatus`, `RelationKind`, `RelationType`, `TaskEditor`.
 - Сиды: built-in типы `task`, `note`, `sketch`, `design`; один пользователь, один workspace, 5 задач разных типов без рёбер.
-- Web: IBM Plex, токены из `carbon-design-design.md`, пустой layout Carbon (Header + Content).
+- Web: Inter + Crimson Text, токены из `vyaz-design-system.md` / `app.css`, коралловая шапка-пилюля.
 - Генерация TS-клиента из OpenAPI.
 - `.env.example`, скрипты `dev` / `db:up` / `db:migrate`.
 
@@ -48,7 +48,7 @@ DoD:
 
 - `docker compose up` поднимает БД.
 - `uvicorn` отдаёт `/health` и `/docs`.
-- Vite открывает белый Carbon-шелл (Plex, Blue 60).
+- Vite открывает шелл MindMap24 (коралл `#fb605e`, бумага `#f7f4ef`, Inter).
 - Миграции проходят; в БД можно создать две задачи и ребро SQL-ом.
 
 Не делать: auth-провайдеры сверх одного метода, CI в Kubernetes.
@@ -279,7 +279,7 @@ DoD:
 
 Фактическая команда: 1 человек + Cursor.
 
-Стек зафиксирован в архитектуре: FastAPI + React + Carbon. Смена стека — новый ADR, не тихая замена в середине фазы.
+Стек зафиксирован в архитектуре: FastAPI + React + MindMap24. Смена стека — новый ADR, не тихая замена в середине фазы.
 
 ---
 

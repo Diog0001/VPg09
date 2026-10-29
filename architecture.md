@@ -57,7 +57,7 @@ Primary / Secondary / Key paths  — все вершины Task
 | Типы задач | хардкод enum | Каталог: дефолтные `task/note/sketch/design` + пользовательские |
 | Конфиг | только WorkspaceConfig | GlobalConfig → WorkspaceConfig с наследованием |
 | Стек | FastAPI + Kafka + K8s сразу | FastAPI + React с дня один; Kafka/K8s не тащим |
-| UI | не зафиксирован | MindMap24 (`carbon-design-design.md`, свои примитивы) |
+| UI | не зафиксирован | MindMap24 (`vyaz-design-system.md`: коралл `#fb605e`, Inter + Crimson Text, пилюли) |
 | Event sourcing / CRDT / 1M узлов | сразу в ядре | event log в Postgres; CRDT и шардинг — после беты |
 | Sketch / заметки | либо отдельные узлы, либо только вложения | типы задачи; редактор (markdown/canvas) зависит от типа |
 | Эволюция | timeline узла | версия задачи + история рёбер + diff подграфа |
@@ -462,10 +462,10 @@ Python здесь не «можно», а **нужен**: агенты, RAG, э�
 |---|---|
 | Сборка | Vite + React + TypeScript |
 | UI-kit | свои примитивы (кнопка, поле, диалог) |
-| Токены | `carbon-design-design.md`: коралл `#fb605e`, Inter, Crimson Text |
+| Токены | `apps/web/src/app.css` + `vyaz-design-system.md`: коралл `#fb605e`, бумага `#f7f4ef`, Inter, Crimson Text |
 | Холст конструктора | **XYFlow** (`@xyflow/react`) |
 | Автоукладка | ELK (`elkjs`) — radial / layered под focus; ручной drag сохраняется в ViewState |
-| Ноды и рёбра | свои компоненты: радиус ~18px, пастель, цвет ребра = RelationKind |
+| Ноды и рёбра | свои: нода 18px, кнопки-пилюли; primary `#fb605e` 2px, secondary `#848890` пунктир, key `#ad3642` 4px |
 | Состояние холста | Zustand (позиции, selection) + TanStack Query (граф с API) |
 | Не используем | Tailwind как дизайн-система, shadcn/ui, MUI, jsmind / markmap / MindElixir |
 
@@ -490,7 +490,7 @@ Python здесь не «можно», а **нужен**: агенты, RAG, э�
 apps/api/          # FastAPI
 apps/web/          # Vite + React
 docker-compose.yml
-carbon-design-design.md
+vyaz-design-system.md
 ```
 
 **После ядра продукта:** pgvector, ARQ для GitHub/эмбеддингов, WebGL если холст > 3–5k узлов, Yjs для совместного конструктора.
@@ -552,7 +552,7 @@ carbon-design-design.md
 Граф, агенты и RAG выгоднее в Python. UI — отдельное SPA. Связка — OpenAPI. Kafka/K8s по-прежнему запрещены до беты.
 
 **ADR-4a. MindMap24 как визуальный закон.**  
-Визуал: коралл `#fb605e`, Inter + Crimson Text, радиусы 20–24, CTA-пилюли. Компоненты свои. Канбан и mindmap-ноды рисуем сами теми же токенами. Carbon и shadcn не подключаем.
+Коралл `#fb605e`, бумага `#f7f4ef`, Inter + Crimson Text, радиусы 20–24 / пилюли 999, ноды 18px. Компоненты свои (`ui.tsx`). Канбан и mindmap рисуем теми же токенами. Carbon, IBM Plex и shadcn не подключаем.
 
 **ADR-4b. XYFlow для конструктора.**  
 Редактор графа, не визуализация дерева. Автоукладка — ELK. Ноды/рёбра — кастом под кит и RelationKind. Sigma/WebGL только если упрёмся в тысячи узлов.

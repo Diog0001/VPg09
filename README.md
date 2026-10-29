@@ -47,7 +47,7 @@ AI-first платформа: первичное представление — �
 |---|---|
 | [PROMPT.md](./PROMPT.md) | Исходная постановка, инварианты. Нельзя «улучшить» так, чтобы они пропали. |
 | [architecture.md](./architecture.md) | Сущности, три слоя рёбер, конфиг, ИИ, стек, ADR. |
-| [carbon-design-design.md](./carbon-design-design.md) | Визуальный закон: MindMap24 (коралл, Inter, Crimson Text). |
+| [vyaz-design-system.md](./vyaz-design-system.md) | Визуальный закон MindMap24: токены из `app.css`, Inter + Crimson Text, виды рёбер. |
 | [TZ.md](./TZ.md) | Сценарии, функциональные требования, MVP, приёмка. |
 | [plan.md](./plan.md) | Порядок реализации по фазам и Definition of Done. |
 | [history_ctxt.md](./history_ctxt.md) | Сжатая история сессий. Агент дописывает сам каждые 3 чата. |
@@ -76,7 +76,7 @@ AI-first платформа: первичное представление — �
 | API | Python 3.12, FastAPI, SQLAlchemy 2, Alembic |
 | БД | PostgreSQL 16 |
 | Граф / ИИ | NetworkX в API, OpenAI-compatible SDK, SSE |
-| Web | Vite, React, TypeScript, свои примитивы по киту MindMap24 |
+| Web | Vite, React, TypeScript, свои примитивы (коралл `#fb605e`, Inter, Crimson Text) |
 | Холст | **XYFlow** (`@xyflow/react`) + ELK для автоукладки; ноды и рёбра свои, в стиле кита |
 | Клиент API | OpenAPI → TypeScript |
 | Dev | Docker Compose (Postgres + API) |
