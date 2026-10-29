@@ -1,8 +1,6 @@
 # Исходный промпт продукта
 
-Источник: [DeepSeek Shared Conversation](https://chat.deepseek.com/share/gvje9zvhjgq3sj6lmy)
 
-Этот файл — зафиксированная постановка. Документы `architecture.md`, `TZ.md`, `plan.md` и `README.md` развивают её, а не заменяют.
 
 ---
 
